@@ -1,0 +1,12 @@
+[package]
+name = "android-logcat"
+version = "0.1.0"
+authors = ["Gang <freegang555@gmail.com>"]
+repository = "https://github.com/thatworld/android-logcat-rs"
+readme = "README.md"
+description = "A simple Rust library for Android logcat."
+license = "Apache-2.0"
+keywords = ["android", "log"]
+
+[dependencies]
+log = "0.4"
