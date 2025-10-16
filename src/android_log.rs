@@ -1,19 +1,32 @@
-use std::{ffi::CString, sync::OnceLock};
+use std::{
+    ffi::CString,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        OnceLock,
+    },
+};
 
-use crate::sys::{__android_log_print, __android_log_write, LogPriority};
+use crate::sys::{LogPriority, __android_log_print, __android_log_write};
 
-/// A global static Log instance
+/// Default tag used when no tag is specified
 static DEFAULT_TAG: &str = "RustLog";
-static GLABLE_LOG: OnceLock<Log> = OnceLock::new();
+
+/// Global static instance of Log tag
+static GLOBAL_LOG_TAG: OnceLock<String> = OnceLock::new();
+
+/// Global static instance to enable or disable logging
+static GLOBAL_LOG_ENABLED: AtomicBool = AtomicBool::new(true);
 
 /// A struct for Android logging
-pub struct Log {
-    tag: String,
-}
+pub struct Log;
 
 impl Log {
     /// Print formatted log message
     pub fn print(prio: LogPriority, tag: &str, msg: &str) {
+        if !Self::is_enabled() {
+            return;
+        }
+
         unsafe {
             __android_log_print(
                 prio as i32,
@@ -26,6 +39,10 @@ impl Log {
 
     /// Write simple log message
     pub fn write<T>(prio: LogPriority, tag: &str, msg: &str) {
+        if !Self::is_enabled() {
+            return;
+        }
+
         unsafe {
             __android_log_write(
                 prio as i32,
@@ -90,21 +107,6 @@ impl Log {
         Self::print(LogPriority::ERROR, tag.as_ref(), msg.as_ref());
     }
 
-    /// Initialize the global Log instance with a specific tag
-    /// # Arguments
-    /// * `tag` - The tag to be used for the global Log instance
-    /// * `mixinlog` - If true, set the Rust log crate to use this Log instance as the logger. e.g. log::info!("message")
-    pub fn init(tag: &str, mixinlog: bool) {
-        let log = GLABLE_LOG.get_or_init(|| Self {
-            tag: tag.to_string(),
-        });
-
-        if mixinlog {
-            log::set_max_level(log::LevelFilter::max());
-            log::set_logger(log).unwrap();
-        }
-    }
-
     /// Log verbose message using the global tag
     /// If the global Log instance is not initialized, use the default tag [DEFAULT_TAG]
     /// # Arguments
@@ -113,8 +115,8 @@ impl Log {
     where
         T: AsRef<str>,
     {
-        if let Some(log) = GLABLE_LOG.get() {
-            Self::verbose(log.tag.as_str(), msg.as_ref());
+        if let Some(tag) = GLOBAL_LOG_TAG.get() {
+            Self::verbose(tag.as_ref(), msg.as_ref());
         } else {
             Self::verbose(DEFAULT_TAG, msg.as_ref());
         }
@@ -128,8 +130,8 @@ impl Log {
     where
         T: AsRef<str>,
     {
-        if let Some(log) = GLABLE_LOG.get() {
-            Self::debug(log.tag.as_str(), msg.as_ref());
+        if let Some(tag) = GLOBAL_LOG_TAG.get() {
+            Self::debug(tag.as_ref(), msg.as_ref());
         } else {
             Self::debug(DEFAULT_TAG, msg.as_ref());
         }
@@ -143,8 +145,8 @@ impl Log {
     where
         T: AsRef<str>,
     {
-        if let Some(log) = GLABLE_LOG.get() {
-            Self::info(log.tag.as_str(), msg.as_ref());
+        if let Some(tag) = GLOBAL_LOG_TAG.get() {
+            Self::info(tag.as_ref(), msg.as_ref());
         } else {
             Self::info(DEFAULT_TAG, msg.as_ref());
         }
@@ -158,8 +160,8 @@ impl Log {
     where
         T: AsRef<str>,
     {
-        if let Some(log) = GLABLE_LOG.get() {
-            Self::warn(log.tag.as_str(), msg.as_ref());
+        if let Some(tag) = GLOBAL_LOG_TAG.get() {
+            Self::warn(tag.as_ref(), msg.as_ref());
         } else {
             Self::warn(DEFAULT_TAG, msg.as_ref());
         }
@@ -173,10 +175,45 @@ impl Log {
     where
         T: AsRef<str>,
     {
-        if let Some(log) = GLABLE_LOG.get() {
-            Self::error(log.tag.as_str(), msg.as_ref());
+        if let Some(tag) = GLOBAL_LOG_TAG.get() {
+            Self::error(tag.as_ref(), msg.as_ref());
         } else {
             Self::error(DEFAULT_TAG, msg.as_ref());
         }
+    }
+
+    /// Initialize the global Log instance with a specific tag
+    /// # Arguments
+    /// * `tag` - The tag to be used for the global Log instance
+    /// * `mixinlog` - If true, set the Rust log crate to use this Log instance as the logger. e.g. log::info!("message")
+    pub fn init(tag: &str, mixinlog: bool) {
+        let _tag = GLOBAL_LOG_TAG.get_or_init(|| tag.to_string());
+        let _enable = GLOBAL_LOG_ENABLED.store(true, Ordering::Relaxed);
+
+        if mixinlog {
+            log::set_max_level(log::LevelFilter::max());
+            log::set_logger(&Self).unwrap();
+        }
+    }
+
+    /// Get the tag of the Log instance
+    pub fn tag() -> &'static str {
+        if let Some(tag) = GLOBAL_LOG_TAG.get() {
+            tag.as_ref()
+        } else {
+            DEFAULT_TAG
+        }
+    }
+
+    /// Enable or disable logging
+    /// # Arguments
+    /// * `enabled` - If true, enable logging; if false, disable logging
+    pub fn enabled(enabled: bool) {
+        GLOBAL_LOG_ENABLED.store(enabled, Ordering::Relaxed);
+    }
+
+    /// Check if logging is enabled
+    pub fn is_enabled() -> bool {
+        GLOBAL_LOG_ENABLED.load(Ordering::Relaxed)
     }
 }

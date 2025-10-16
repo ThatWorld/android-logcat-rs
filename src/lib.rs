@@ -1,7 +1,8 @@
+mod android_log;
 mod expect_log;
-mod logcat;
-mod mixinlog;
+mod macro_log;
+mod mixin_log;
 mod sys;
 
-pub use expect_log::ExpectLogcat;
-pub use logcat::Log;
+pub use android_log::*;
+pub use expect_log::*;

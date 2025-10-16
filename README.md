@@ -12,7 +12,6 @@ Add this to your `Cargo.toml`:
 ```toml
 [dependencies]
 android-logcat = "0.1"
-log = "0.4"
 ```
 
 ### Basic Usage
@@ -41,9 +40,46 @@ Log::i("Info message using the global tag");
 Log::e("Error message using the global tag");
 ```
 
+### Using macros
+
+```rust
+use android_logcat;
+
+// In global tag
+android_logcat::i!("Info message {}", "Hello World!");
+android_logcat::d!("Debug message {}", "Hello World!");
+
+// In custom tag
+android_logcat::d!(tag: "MyAppTag", "Debug message {}", "Hello World!");
+```
+
+### Disable control
+
+```rust
+use android_logcat::Log;
+
+// default status is `enable`.
+
+// diseanble
+Log::enabled(false);
+let curr_status = Log::is_enabled();
+
+// reenable
+Log::enabled(true);
+let curr_status = Log::is_enabled();
+```
+
 ### With `log` crate
 
 This library can be used as a backend for the `log` crate.
+
+Change this to your `Cargo.toml`:
+
+```toml
+[dependencies]
+android-logcat = "0.1"
+log = "0.4"
+```
 
 ```rust
 use android_logcat::Log;
